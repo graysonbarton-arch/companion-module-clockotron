@@ -1,8 +1,11 @@
 name: Release
 
+# Publishes a GitHub release (and its v<version> tag) whenever main carries a
+# package.json version that hasn't been released yet.
 on:
   push:
-    tags: ['v*']
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -12,16 +15,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - run: npm install --no-audit --no-fund
-      - run: npm test
-      - run: npx companion-module-build
-      - name: Publish GitHub release
+      - name: Check whether this version is already released
+        id: version
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" clockotron-*.tgz \
-            --title "Clockotron for Companion $GITHUB_REF_NAME" \
+          TAG="v$(node -p "require('./package.json').version")"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-node@v4
+        if: steps.version.outputs.exists == 'false'
+        with:
+          node-version: 22
+      - if: steps.version.outputs.exists == 'false'
+        run: npm install --no-audit --no-fund
+      - if: steps.version.outputs.exists == 'false'
+        run: npm test
+      - if: steps.version.outputs.exists == 'false'
+        run: npx companion-module-build
+      - name: Publish GitHub release
+        if: steps.version.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          gh release create "$TAG" clockotron-*.tgz \
+            --target "$GITHUB_SHA" \
+            --title "Clockotron for Companion $TAG" \
             --notes-file .github/release-notes.md

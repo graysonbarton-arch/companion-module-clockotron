@@ -37,7 +37,7 @@ npm test                       # unit tests
 npx companion-module-build     # writes clockotron-<version>.tgz
 ```
 
-Pushing a `v*` tag builds the package and publishes a GitHub release with the `.tgz` attached.
+Bumping the version in `package.json` and pushing to `main` builds the package and publishes a GitHub release with the `.tgz` attached.
 
 ## License
 
